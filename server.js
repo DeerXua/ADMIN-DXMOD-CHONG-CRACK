@@ -10,16 +10,28 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 5001;
 const XOR_KEY = "DX_SECRET_KEY_2026_@#$";
 
-// Paths
-const LOCAL_SCRIPT = path.join(__dirname, "protected_script.lua");
-const PARENT_SCRIPT = path.join(__dirname, "..", "protected_script.lua");
-const SCRIPT_PATH = fs.existsSync(LOCAL_SCRIPT) ? LOCAL_SCRIPT : PARENT_SCRIPT;
-const DB_PATH = path.join(__dirname, "..", "ADMIN-DXMOD", "data.json");
+// Candidate DB Paths to find the real ADMIN-DXMOD data.json
+function getActiveDbPath() {
+  if (process.env.DB_PATH && fs.existsSync(process.env.DB_PATH)) {
+    return process.env.DB_PATH;
+  }
+  const candidates = [
+    path.join(__dirname, "..", "ADMIN-DXMOD", "data.json"),
+    path.join(__dirname, "..", "TOOL-PAK-DX", "ADMIN-DXMOD", "data.json"),
+    "/root/ADMIN-DXMOD/data.json",
+    "/root/TOOL-PAK-DX/ADMIN-DXMOD/data.json",
+    "/root/TOOL-PAK-DX/data.json",
+    "c:\\ExtractedPak\\TOOL PAK DX\\ADMIN-DXMOD\\data.json"
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return path.join(__dirname, "..", "ADMIN-DXMOD", "data.json");
+}
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+let DB_PATH = getActiveDbPath();
 
 // XOR Encryption Helper
 function encryptXOR(plaintext) {
@@ -34,6 +46,7 @@ function encryptXOR(plaintext) {
 
 // Read ADMIN-DXMOD database in read-only mode
 function readDatabase() {
+  DB_PATH = getActiveDbPath();
   if (!fs.existsSync(DB_PATH)) {
     return { devices: [] };
   }
@@ -49,6 +62,7 @@ function readDatabase() {
 
 function writeDatabase(db) {
   try {
+    DB_PATH = getActiveDbPath();
     const tempPath = `${DB_PATH}.tmp`;
     fs.writeFileSync(tempPath, JSON.stringify(db, null, 2), "utf8");
     fs.renameSync(tempPath, DB_PATH);
@@ -63,7 +77,9 @@ function findOrCreateDevice(gameId) {
 
   const db = readDatabase();
   const devices = db.devices || [];
-  let device = devices.find(d => String(d.game_id || "").trim() === targetId);
+  let device = devices.find(d => 
+    String(d.game_id || d.gameId || d.uid || "").trim() === targetId
+  );
 
   // Auto register if new UID connects
   if (!device) {
@@ -83,16 +99,19 @@ function findOrCreateDevice(gameId) {
     db.nextId = nextId + 1;
     db.devices = devices;
     writeDatabase(db);
-    console.log(`[CORE-SERVER] Registered new UID: "${targetId}" into data.json (status: pending)`);
+    console.log(`[CORE-SERVER] Registered new UID: "${targetId}" into data.json at ${DB_PATH} (status: pending)`);
   }
 
   return device;
 }
 
 function isDeviceActive(device) {
-  if (!device || device.status !== "approved") return false;
-  if (!device.expires_at) return true;
-  return new Date(device.expires_at).getTime() > Date.now();
+  if (!device) return false;
+  const status = String(device.status || "").toLowerCase();
+  if (status !== "approved" && status !== "active" && status !== "success") return false;
+  const exp = device.expires_at || device.expiresAt || device.expire_time;
+  if (!exp) return true; // Permanent VIP
+  return new Date(exp).getTime() > Date.now();
 }
 
 // ----------------------------------------------------------------
