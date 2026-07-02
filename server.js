@@ -33,6 +33,15 @@ function getActiveDbPath() {
 
 let DB_PATH = getActiveDbPath();
 
+const LOCAL_SCRIPT = path.join(__dirname, "protected_script.lua");
+const PARENT_SCRIPT = path.join(__dirname, "..", "protected_script.lua");
+const SCRIPT_PATH = fs.existsSync(LOCAL_SCRIPT) ? LOCAL_SCRIPT : PARENT_SCRIPT;
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // XOR Encryption Helper
 function encryptXOR(plaintext) {
   const data = Buffer.from(plaintext, "utf8");
