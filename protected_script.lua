@@ -1,8 +1,9 @@
-local BRPlayerCharacterBase = {
+local BRPlayerCharacterBase = (_G.Temp_BRPlayerCharacterBase and _G.Temp_BRPlayerCharacterBase.base) or {
     ServerRPC = {},
     ClientRPC = {},
     MulticastRPC = {}
 }
+local CBRPlayerCharacterBase = (_G.Temp_BRPlayerCharacterBase and _G.Temp_BRPlayerCharacterBase.class) or {}
 
 BRPlayerCharacterBase.ServerRPC.ServerRPC_NearDeathGiveupRescue = { Reliable = true, Params = {} }
 BRPlayerCharacterBase.ServerRPC.ServerRPC_CarryDeadBox = { Reliable = true, Params = { UEnums.EPropertyClass.Object } }
