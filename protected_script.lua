@@ -2764,6 +2764,14 @@ function _G.HK_GetVal(key)
     if val == nil and _G.HK_Settings then
         val = _G.HK_Settings[key]
     end
+    if val == nil then
+        local upperKey = string.upper(key)
+        val = _G.HK_Settings_Raw[upperKey] or (_G.HK_Settings and _G.HK_Settings[upperKey])
+    end
+    if val == nil then
+        local lowerKey = string.lower(key)
+        val = _G.HK_Settings_Raw[lowerKey] or (_G.HK_Settings and _G.HK_Settings[lowerKey])
+    end
     if val == true or val == 1 then return 1 end
     if val == false or val == 0 or val == nil then return 0 end
     return tonumber(val) or 0
@@ -4292,7 +4300,7 @@ end
                         local currentMeshCount = #meshes
                         local isMeshChanged = (enemy.LastMeshCountWall ~= currentMeshCount)
                         
-                        local isWallhackGlobalOn = (_G.HK_GetVal("Wallhack") == 1 or _G.HK_GetVal("WALL_ENABLE") == 1 or _G.HK_GetVal("AuraWall") == 1)
+                        local isWallhackGlobalOn = (_G.HK_GetVal("WALLHACK") == 1 or _G.HK_GetVal("Wallhack") == 1 or _G.HK_GetVal("WALL_ENABLE") == 1 or _G.HK_GetVal("AuraWall") == 1)
                         if isWallhackGlobalOn then
                             local visColor = GetCurrentWallVisibleColor()
                             local occludedColor = GetCurrentWallOccludedColor(enemy.HK_IsAICached)
