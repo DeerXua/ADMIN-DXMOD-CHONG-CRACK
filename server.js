@@ -47,11 +47,46 @@ function readDatabase() {
   }
 }
 
-function findDevice(gameId) {
+function writeDatabase(db) {
+  try {
+    const tempPath = `${DB_PATH}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(db, null, 2), "utf8");
+    fs.renameSync(tempPath, DB_PATH);
+  } catch (err) {
+    console.error("[CORE-SERVER] Failed to write database:", err.message);
+  }
+}
+
+function findOrCreateDevice(gameId) {
+  const targetId = String(gameId || "").trim();
+  if (!targetId) return null;
+
   const db = readDatabase();
   const devices = db.devices || [];
-  const targetId = String(gameId || "").trim();
-  return devices.find(d => String(d.game_id || "").trim() === targetId);
+  let device = devices.find(d => String(d.game_id || "").trim() === targetId);
+
+  // Auto register if new UID connects
+  if (!device) {
+    const nextId = db.nextId || (devices.length > 0 ? Math.max(...devices.map(d => d.id || 0)) + 1 : 1);
+    const nowIso = new Date().toISOString();
+    device = {
+      id: nextId,
+      game_id: targetId,
+      label: `Device ${targetId}`,
+      status: "pending",
+      expires_at: null,
+      note: "Tự động đăng ký từ Game Client",
+      first_seen_at: nowIso,
+      updated_at: nowIso
+    };
+    devices.push(device);
+    db.nextId = nextId + 1;
+    db.devices = devices;
+    writeDatabase(db);
+    console.log(`[CORE-SERVER] Registered new UID: "${targetId}" into data.json (status: pending)`);
+  }
+
+  return device;
 }
 
 function isDeviceActive(device) {
@@ -80,7 +115,7 @@ app.post("/api/check", (req, res) => {
     });
   }
 
-  const device = findDevice(uid);
+  const device = findOrCreateDevice(uid);
   const active = isDeviceActive(device);
 
   if (!active) {
