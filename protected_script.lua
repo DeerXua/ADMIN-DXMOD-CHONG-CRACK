@@ -4440,11 +4440,12 @@ end
                                 end
 
                                 -- 2. Lấy thông tin Động tác / Tư thế (Stance)
-                                local ESTEPoseState = import("ESTEPoseState")
+                                if not _G.Cached_ESTEPoseState then pcall(function() _G.Cached_ESTEPoseState = import("ESTEPoseState") end) end
+                                local ESTEPoseState = _G.Cached_ESTEPoseState
                                 local poseText = "Đứng"
-                                if enemy.PoseState == ESTEPoseState.Crouch then
+                                if ESTEPoseState and enemy.PoseState == ESTEPoseState.Crouch then
                                     poseText = "Ngồi"
-                                elseif enemy.PoseState == ESTEPoseState.Prone then
+                                elseif ESTEPoseState and enemy.PoseState == ESTEPoseState.Prone then
                                     poseText = "Nằm"
                                 end
 
@@ -4456,7 +4457,7 @@ end
                                 local enemyId = type(enemy.GetUniqueID) == "function" and enemy:GetUniqueID() or tostring(enemy)
                                 local pc = GameplayData.GetPlayerController()
                                 _G.AimTouchVisCache = _G.AimTouchVisCache or {}
-                                if not _G.AimTouchVisCache[enemyId] or (curTime - _G.AimTouchVisCache[enemyId].time) > 0.2 then
+                                if not _G.AimTouchVisCache[enemyId] or (curTime - _G.AimTouchVisCache[enemyId].time) > 0.3 then
                                     local isHidden = true
                                     if Valid(pc) then
                                         pcall(function() if pc:LineOfSightTo(enemy) then isHidden = false end end)
@@ -4480,8 +4481,8 @@ end
                         local showFrameUI = (_G.HK_GetVal("ESP_BOX") == 1 or _G.HK_GetVal("EspLoai5") == 1)
                         if showFrameUI then
                             pcall(function()
-                                local SecurityCommonUtils = nil
-                                pcall(function() SecurityCommonUtils = require("GameLua.Mod.BaseMod.Common.Security.SecurityCommonUtils") end)
+                                if not _G.Cached_SecurityCommonUtils then pcall(function() _G.Cached_SecurityCommonUtils = require("GameLua.Mod.BaseMod.Common.Security.SecurityCommonUtils") end) end
+                                local SecurityCommonUtils = _G.Cached_SecurityCommonUtils
                                 local show = true
                                 if enemy.HealthStatus and SecurityCommonUtils and SecurityCommonUtils.IsHealthStatusAlive then 
                                     if not SecurityCommonUtils.IsHealthStatusAlive(enemy.HealthStatus) then show = false end
@@ -4635,7 +4636,8 @@ end
                                         pcall(function() 
                                             if enemyMesh.SetPhysicsAsset then enemyMesh:SetPhysicsAsset(PhysicsAsset) end
                                             enemyMesh.PhysicsAssetOverride = PhysicsAsset
-                                            if enemyMesh.RecreatePhysicsState then enemyMesh:RecreatePhysicsState() end 
+                                            enemyMesh.bIsTDHitboxModded = true
+                                            enemyMesh.LastHitboxUpdateVersion = _G.MagicUpdateVersion
                                         end)
                                     end
                                 end)
