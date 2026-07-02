@@ -2744,8 +2744,20 @@ function _G.InitModMenuTab()
     end
 end
 
--- =========================== PHẦN 28: AURA DYEING FUNCTIONS ===========================
-local slua_isValid = slua and slua.isValid
+if not _G.HK_Settings_Raw then _G.HK_Settings_Raw = {} end
+_G.HK_Settings = _G.HK_Settings_Raw
+
+function _G.HK_GetVal(key)
+    if not key then return 0 end
+    local val = _G.HK_Settings_Raw[key]
+    if val == nil and _G.HK_Settings then
+        val = _G.HK_Settings[key]
+    end
+    if val == true or val == 1 then return 1 end
+    if val == false or val == 0 or val == nil then return 0 end
+    return tonumber(val) or 0
+end
+
 local string_lower = string.lower
 local string_find = string.find
 local os_clock = os.clock
@@ -4263,6 +4275,7 @@ end
                         local currentMeshCount = #meshes
                         local isMeshChanged = (enemy.LastMeshCountWall ~= currentMeshCount)
                         
+                        local isWallhackGlobalOn = (_G.HK_GetVal("Wallhack") == 1 or _G.HK_GetVal("WALL_ENABLE") == 1 or _G.HK_GetVal("AuraWall") == 1)
                         if isWallhackGlobalOn then
                             local visColor = GetCurrentWallVisibleColor()
                             local occludedColor = GetCurrentWallOccludedColor(enemy.HK_IsAICached)
