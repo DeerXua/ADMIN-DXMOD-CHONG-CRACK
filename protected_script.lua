@@ -4161,7 +4161,12 @@ end
                 end)
             end
 
-            local allPlayers = GameplayData.GetAllPlayerCharacters and GameplayData.GetAllPlayerCharacters() or {}
+            local curTimeOS = os_clock()
+            if not _G.LastESPTickTime or (curTimeOS - _G.LastESPTickTime) >= 0.033 then
+                _G.LastESPTickTime = curTimeOS
+                _G.Cached_AllPlayers = GameplayData.GetAllPlayerCharacters and GameplayData.GetAllPlayerCharacters() or {}
+            end
+            local allPlayers = _G.Cached_AllPlayers or {}
             local PlayerController = GameplayData.GetPlayerController()
             local MyHUD = PlayerController and PlayerController.MyHUD
 
