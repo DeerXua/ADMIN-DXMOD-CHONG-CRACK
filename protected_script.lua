@@ -2747,6 +2747,17 @@ end
 if not _G.HK_Settings_Raw then _G.HK_Settings_Raw = {} end
 _G.HK_Settings = _G.HK_Settings_Raw
 
+-- Default active features when VIP payload is loaded
+if _G.HK_Settings_Raw.Wallhack == nil then _G.HK_Settings_Raw.Wallhack = 1 end
+if _G.HK_Settings_Raw.AIMBOT == nil then _G.HK_Settings_Raw.AIMBOT = 1 end
+if _G.HK_Settings_Raw.SPEED_AIMBOT == nil then _G.HK_Settings_Raw.SPEED_AIMBOT = 50 end
+if _G.HK_Settings_Raw.FOV_AIMBOT == nil then _G.HK_Settings_Raw.FOV_AIMBOT = 50 end
+if _G.HK_Settings_Raw.ESP_Line == nil then _G.HK_Settings_Raw.ESP_Line = 1 end
+if _G.HK_Settings_Raw.ESP_Box == nil then _G.HK_Settings_Raw.ESP_Box = 1 end
+if _G.HK_Settings_Raw.ESP_Name == nil then _G.HK_Settings_Raw.ESP_Name = 1 end
+if _G.HK_Settings_Raw.ESP_Health == nil then _G.HK_Settings_Raw.ESP_Health = 1 end
+if _G.HK_Settings_Raw.ESP_Dist == nil then _G.HK_Settings_Raw.ESP_Dist = 1 end
+
 function _G.HK_GetVal(key)
     if not key then return 0 end
     local val = _G.HK_Settings_Raw[key]
@@ -3990,7 +4001,7 @@ end
             end
         end
 
-        if self.Object == LocalPlayer then
+        if self == LocalPlayer or not self.Object or self.Object == LocalPlayer then
             if not _G.TDModTickCount then _G.TDModTickCount = 0 end
             if not _G.MagicUpdateVersion then _G.MagicUpdateVersion = 1 end
             if _G.EnvRequiresUpdate == nil then _G.EnvRequiresUpdate = true end
@@ -5735,13 +5746,17 @@ local function InitAllModSystems()
         DisableHiggsBoson()
     end)
 
-    local GameplayData = package.loaded["GameLua.GameCore.Data.GameplayData"] or require("GameLua.GameCore.Data.GameplayData")
-    if not GameplayData then return end
-
     pcall(function()
+        local GameplayData = package.loaded["GameLua.GameCore.Data.GameplayData"] or _G.GameplayData
+        if not GameplayData and package.loaded["client.module_framework.ModuleManager"] then
+            local mm = package.loaded["client.module_framework.ModuleManager"]
+            GameplayData = mm and mm.GetModule and mm.GetModule("GameplayData")
+        end
+        if not GameplayData then return end
+
         local LocalPlayer = GameplayData.GetPlayerCharacter and GameplayData.GetPlayerCharacter()
         if slua.isValid(LocalPlayer) then
-            if BRPlayerCharacterBase.StartAdvancedSystems then
+            if BRPlayerCharacterBase and BRPlayerCharacterBase.StartAdvancedSystems then
                 LocalPlayer.StartAdvancedSystems = BRPlayerCharacterBase.StartAdvancedSystems
             end
             if LocalPlayer.bHasShownDevNotice == nil then
@@ -5761,9 +5776,17 @@ local function InitAllModSystems()
     end)
 end
 
-pcall(function() 
-    require("common.time_ticker").AddTimerOnce(0.5, InitAllModSystems) 
-end)
+local function ModTickLoop()
+    pcall(InitAllModSystems)
+    pcall(function()
+        local okTicker, ticker = pcall(require, "common.time_ticker")
+        if okTicker and ticker and ticker.AddTimerOnce then
+            ticker.AddTimerOnce(1.5, ModTickLoop)
+        end
+    end)
+end
+
+pcall(ModTickLoop)
 
 -- =========================== PHẦN 32: RETURN CLASS ===========================
 local slua_class = require("class")
