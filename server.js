@@ -181,7 +181,7 @@ app.post("/api/check", (req, res) => {
 // ----------------------------------------------------------------
 app.get("/api/check", (req, res) => {
   const uid = String(req.query.uid || req.query.gameId || "").trim();
-  const device = findDevice(uid);
+  const device = findOrCreateDevice(uid);
   const active = isDeviceActive(device);
   return res.json({
     status: active ? "success" : "error",
@@ -195,7 +195,7 @@ app.get("/api/check", (req, res) => {
 app.listen(PORT, () => {
   console.log("=================================================");
   console.log(`  STANDALONE CORE PAYLOAD SERVER RUNNING ON PORT ${PORT}`);
-  console.log(`  Read-only DB Path : ${DB_PATH}`);
+  console.log(`  Scanning DB Paths : ${DB_CANDIDATES.join(", ")}`);
   console.log(`  Script Payload    : ${SCRIPT_PATH}`);
   console.log("=================================================");
 });
