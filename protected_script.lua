@@ -3723,14 +3723,15 @@ function BRPlayerCharacterBase:StartAdvancedSystems()
     local checkTimerCounter = 0
     local systemTimerHandle
     systemTimerHandle = self:AddGameTimer(0.25, true, function()
-        if not Valid(self.Object) then
+        local pawnObj = slua.isValid(self.Object) and self.Object or self
+        if not Valid(pawnObj) then
             if systemTimerHandle then self:RemoveGameTimer(systemTimerHandle) end
             return
         end
         
         local LocalPlayer = GameplayData.GetPlayerCharacter()
         if not Valid(LocalPlayer) then return end
-        if self.Object ~= LocalPlayer then
+        if pawnObj ~= LocalPlayer then
             if systemTimerHandle then self:RemoveGameTimer(systemTimerHandle) end
             return
         end
@@ -3754,8 +3755,8 @@ function BRPlayerCharacterBase:StartAdvancedSystems()
         cache_AUTO_BUNNYHOP = _G.HK_GetVal("AUTO_BUNNYHOP") or 0
 
         if currentTime > expireTime then
-            if self.Object == LocalPlayer and not self.bHasShownExpiredNotice then
-                if self.Object.IsAlive and self.Object:IsAlive() then
+            if (pawnObj == LocalPlayer or self == LocalPlayer) and not self.bHasShownExpiredNotice then
+                if pawnObj.IsAlive and pawnObj:IsAlive() then
                     self.bHasShownExpiredNotice = true
                     pcall(function()
                         local msgBox = package.loaded["client.slua.logic.common.logic_common_msg_box"] or require("client.slua.logic.common.logic_common_msg_box")
@@ -3772,8 +3773,8 @@ function BRPlayerCharacterBase:StartAdvancedSystems()
             return 
         end
 
-        if self.Object == LocalPlayer and not self.bHasShownWelcomeNotice then
-            if self.Object.IsAlive and self.Object:IsAlive() then
+        if (pawnObj == LocalPlayer or self == LocalPlayer) and not self.bHasShownWelcomeNotice then
+            if pawnObj.IsAlive and pawnObj:IsAlive() then
                 if _G.DX_UIDStatus and _G.DX_UIDStatus.status ~= "checking" then
                     self.bHasShownWelcomeNotice = true
                     local isActivated = (_G.DX_UIDStatus.active == true)
@@ -3801,9 +3802,9 @@ function BRPlayerCharacterBase:StartAdvancedSystems()
             end
         end
 
-        local isAiming = self.Object.bIsWeaponAiming or false
-        local isWallhackGlobalOn = (_G.HK_GetVal("WALLHACK") == 1)
-        local isWhiteBodyOn = (_G.HK_GetVal("WHITE_BODY") == 1)            
+        local isAiming = pawnObj.bIsWeaponAiming or false
+        local isWallhackGlobalOn = (_G.HK_GetVal("Wallhack") == 1 or _G.HK_GetVal("WALLHACK") == 1 or _G.HK_GetVal("WALL_ENABLE") == 1)
+        local isWhiteBodyOn = (_G.HK_GetVal("WHITE_BODY") == 1 or _G.HK_GetVal("WhiteBody") == 1)            
         local espHit1 = (_G.HK_GetVal("ESP_HITMARK_1") == 1)
         local espHit2 = (_G.HK_GetVal("ESP_HITMARK_2") == 1)
         local espWeaponStance = (_G.HK_GetVal("ESP_WEAPON") == 1)
@@ -3828,14 +3829,14 @@ function BRPlayerCharacterBase:StartAdvancedSystems()
             if _G.HK_GetVal("IpadView") == 1 then
                 pcall(function()
                     local targetTPP = _G.HK_GetVal("IpadViewFOV") or 120
-                    local TPPCamera = self.Object.ThirdPersonCameraComponent
+                    local TPPCamera = pawnObj.ThirdPersonCameraComponent
                     if Valid(TPPCamera) then
                         if TPPCamera.FieldOfView ~= targetTPP then TPPCamera.FieldOfView = targetTPP end
                     end
                 end)
             else
                 pcall(function()
-                    local TPPCamera = self.Object.ThirdPersonCameraComponent
+                    local TPPCamera = pawnObj.ThirdPersonCameraComponent
                     if Valid(TPPCamera) then
                         if TPPCamera.FieldOfView ~= 90 then TPPCamera.FieldOfView = 90 end
                     end
@@ -3845,8 +3846,8 @@ function BRPlayerCharacterBase:StartAdvancedSystems()
         end
 
         local currentTickOS = os_clock()
-        if self.Object.GetCurrentWeapon then
-            local currentWeapon = self.Object:GetCurrentWeapon()
+        if pawnObj.GetCurrentWeapon then
+            local currentWeapon = pawnObj:GetCurrentWeapon()
             if Valid(currentWeapon) then
                 if self.LastWeaponEntity ~= currentWeapon then
                     self.LastWeaponEntity = currentWeapon
