@@ -58,6 +58,44 @@ end
 
 _G.ApplyAuraToMeshComponent = _G.DX_Secret_ApplyAuraToMeshComponent
 
+-- ---------------------------------------------------------
+-- 3. AIMBOT ROYAL & CUSTOM ALGORITHM (AIMTOUCH)
+-- ---------------------------------------------------------
+function _G.DX_Secret_AimTouch()
+    pcall(function()
+        if _G.HK_GetVal("AimTouchEnable") ~= 1 then return end
+        local GameplayData = require("GameLua.GameCore.Data.GameplayData")
+        local player = GameplayData and GameplayData.GetPlayerCharacter and GameplayData.GetPlayerCharacter()
+        if not slua or not slua.isValid or not slua.isValid(player) then return end
+        
+        local isFiring = player.bIsWeaponFiring
+        local isADS = player.bIsGunADS
+        
+        -- HIPFIRE OR ADS CHECK
+        local isHip = (_G.HK_GetVal("AimTouchHipfire") == 1) and (isFiring or _G.HK_GetVal("AimTouchHipCond") == 2)
+        local isAdsMode = (_G.HK_GetVal("AimTouchScope") == 1) and isADS
+        
+        if not isHip and not isAdsMode then return end
+        
+        -- WEAPON CHECK
+        local weapon = player.WeaponManagerComponent and player.WeaponManagerComponent.CurrentWeaponReplicated
+        if not weapon and type(player.GetCurrentShootWeapon) == "function" then weapon = player:GetCurrentShootWeapon() end
+        
+        local isShotgun = false
+        local isSniper = false
+        if slua.isValid(weapon) then
+            local wName = type(weapon.GetWeaponName) == "function" and weapon:GetWeaponName() or ""
+            if wName:find("S686") or wName:find("S1897") or wName:find("DBS") or wName:find("M1014") then isShotgun = true end
+            if wName:find("Kar98") or wName:find("M24") or wName:find("AWM") or wName:find("SKS") or wName:find("SLR") or wName:find("Mk14") then isSniper = true end
+        end
+        
+        if isShotgun and _G.HK_GetVal("AimTouchSG") ~= 1 then return end
+        if isSniper and _G.HK_GetVal("AimTouchSniper") ~= 1 then return end
+    end)
+end
+
+_G.AimTouch = _G.DX_Secret_AimTouch
+
 -- Mark Core Loaded flag
 _G.DX_CoreLoaded = true
-print("[CORE-SERVER] [✓] VIP Core Algorithms Active & Direct Pointer Bound!")
+print("[CORE-SERVER] [✓] ALL VIP Core Algorithms Active & Direct Pointer Bound!")
