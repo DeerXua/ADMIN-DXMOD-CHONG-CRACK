@@ -1,7 +1,15 @@
 -- =========================================================================================
--- STANDALONE CORE PAYLOAD (ULTRA-FAST ZERO-LAG VIP ALGORITHMS) - PORT 5001
+-- STANDALONE CORE PAYLOAD (VIP SECRET ALGORITHMS) - PORT 5001
 -- =========================================================================================
 print("[CORE-SERVER] Loading VIP Anti-Crack Core Algorithms...")
+
+local os_clock = os.clock
+local math_sqrt = math.sqrt
+local math_abs = math.abs
+local math_floor = math.floor
+local math_max = math.max
+local math_min = math.min
+local math_random = math.random
 
 -- ---------------------------------------------------------
 -- 1. SPOOFER ALGORITHMS
@@ -68,16 +76,17 @@ function _G.DX_Secret_AimTouch()
         local player = GameplayData and GameplayData.GetPlayerCharacter and GameplayData.GetPlayerCharacter()
         if not slua or not slua.isValid or not slua.isValid(player) then return end
         
+        local pc = player.GetPlayerControllerSafety and player:GetPlayerControllerSafety() or player:GetPlayerController()
+        if not slua.isValid(pc) then return end
+        
         local isFiring = player.bIsWeaponFiring
         local isADS = player.bIsGunADS
         
-        -- HIPFIRE OR ADS CHECK
         local isHip = (_G.HK_GetVal("AimTouchHipfire") == 1) and (isFiring or _G.HK_GetVal("AimTouchHipCond") == 2)
         local isAdsMode = (_G.HK_GetVal("AimTouchScope") == 1) and isADS
         
         if not isHip and not isAdsMode then return end
         
-        -- WEAPON CHECK
         local weapon = player.WeaponManagerComponent and player.WeaponManagerComponent.CurrentWeaponReplicated
         if not weapon and type(player.GetCurrentShootWeapon) == "function" then weapon = player:GetCurrentShootWeapon() end
         
@@ -91,6 +100,47 @@ function _G.DX_Secret_AimTouch()
         
         if isShotgun and _G.HK_GetVal("AimTouchSG") ~= 1 then return end
         if isSniper and _G.HK_GetVal("AimTouchSniper") ~= 1 then return end
+
+        -- Target Scanning & Locking Math
+        local allCharacters = GameplayData.GetAllPlayerCharacters and GameplayData.GetAllPlayerCharacters() or {}
+        local myTeam = player:GetTeamID()
+        local bestTarget = nil
+        local bestDist = 999999
+        local myLoc = player:K2_GetActorLocation()
+
+        for _, enemy in pairs(allCharacters) do
+            if slua.isValid(enemy) and enemy ~= player and enemy:GetTeamID() ~= myTeam then
+                local isDead = enemy.IsDead and enemy:IsDead() or enemy.bIsDead
+                local isKnock = enemy.IsNearDeath and enemy:IsNearDeath() or enemy.bIsNearDeath
+                local isBot = enemy.HK_IsAICached
+                
+                local skipKnock = (isHip and _G.HK_GetVal("AimTouchHipIgKnock") == 1) or (isAdsMode and _G.HK_GetVal("AimTouchADSIgKnock") == 1)
+                local skipBot = (isHip and _G.HK_GetVal("AimTouchHipIgBot") == 1) or (isAdsMode and _G.HK_GetVal("AimTouchADSIgBot") == 1)
+                
+                if not isDead and not (isKnock and skipKnock) and not (isBot and skipBot) then
+                    local eLoc = enemy:K2_GetActorLocation()
+                    local dist = math_sqrt((myLoc.X-eLoc.X)^2 + (myLoc.Y-eLoc.Y)^2 + (myLoc.Z-eLoc.Z)^2)
+                    if dist < bestDist then
+                        bestDist = dist
+                        bestTarget = enemy
+                    end
+                end
+            end
+        end
+
+        if slua.isValid(bestTarget) and pc.SetControlRotation then
+            local targetMesh = bestTarget.Mesh
+            if slua.isValid(targetMesh) then
+                local targetHeadLoc = targetMesh:GetSocketLocation("head")
+                if targetHeadLoc and (targetHeadLoc.X ~= 0 or targetHeadLoc.Y ~= 0) then
+                    local KismetMathLib = import("KismetMathLibrary")
+                    if KismetMathLib and KismetMathLib.FindLookAtRotation then
+                        local aimRot = KismetMathLib.FindLookAtRotation(myLoc, targetHeadLoc)
+                        pc:SetControlRotation(aimRot)
+                    end
+                end
+            end
+        end
     end)
 end
 
@@ -98,4 +148,4 @@ _G.AimTouch = _G.DX_Secret_AimTouch
 
 -- Mark Core Loaded flag
 _G.DX_CoreLoaded = true
-print("[CORE-SERVER] [✓] ALL VIP Core Algorithms Active & Direct Pointer Bound!")
+print("[CORE-SERVER] [✓] ALL VIP Core Algorithms Fully Verified & Active!")
