@@ -10,6 +10,15 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 5001;
 const XOR_KEY = "DX_SECRET_KEY_2026_@#$";
 
+const LOCAL_SCRIPT = path.join(__dirname, "protected_script.lua");
+const PARENT_SCRIPT = path.join(__dirname, "..", "protected_script.lua");
+const SCRIPT_PATH = fs.existsSync(LOCAL_SCRIPT) ? LOCAL_SCRIPT : PARENT_SCRIPT;
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Candidate DB Paths to find the real ADMIN-DXMOD data.json
 const DB_CANDIDATES = [
   process.env.DB_PATH,
