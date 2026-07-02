@@ -11,104 +11,82 @@ const PORT = process.env.PORT || 5001;
 const XOR_KEY = "DX_SECRET_KEY_2026_@#$";
 
 // Candidate DB Paths to find the real ADMIN-DXMOD data.json
-function getActiveDbPath() {
-  if (process.env.DB_PATH && fs.existsSync(process.env.DB_PATH)) {
-    return process.env.DB_PATH;
-  }
-  const candidates = [
-    path.join(__dirname, "..", "ADMIN-DXMOD", "data.json"),
-    path.join(__dirname, "..", "TOOL-PAK-DX", "ADMIN-DXMOD", "data.json"),
-    "/root/ADMIN-DXMOD/data.json",
-    "/root/TOOL-PAK-DX/ADMIN-DXMOD/data.json",
-    "/root/TOOL-PAK-DX/data.json",
-    "c:\\ExtractedPak\\TOOL PAK DX\\ADMIN-DXMOD\\data.json"
-  ];
-  for (const p of candidates) {
+const DB_CANDIDATES = [
+  process.env.DB_PATH,
+  path.join(__dirname, "..", "ADMIN-DXMOD", "data.json"),
+  path.join(__dirname, "..", "TOOL-PAK-DX", "ADMIN-DXMOD", "data.json"),
+  "/root/ADMIN-DXMOD/data.json",
+  "/root/TOOL-PAK-DX/ADMIN-DXMOD/data.json",
+  "/root/TOOL-PAK-DX/data.json",
+  "/root/data.json",
+  "c:\\ExtractedPak\\TOOL PAK DX\\ADMIN-DXMOD\\data.json"
+].filter(Boolean);
+
+function readAllDevices() {
+  const allDevices = [];
+  for (const p of DB_CANDIDATES) {
     if (fs.existsSync(p)) {
-      return p;
+      try {
+        const raw = fs.readFileSync(p, "utf8").trim();
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.devices && Array.isArray(parsed.devices)) {
+            for (const dev of parsed.devices) {
+              allDevices.push({ ...dev, _sourcePath: p });
+            }
+          }
+        }
+      } catch (err) {}
     }
   }
-  return path.join(__dirname, "..", "ADMIN-DXMOD", "data.json");
-}
-
-let DB_PATH = getActiveDbPath();
-
-const LOCAL_SCRIPT = path.join(__dirname, "protected_script.lua");
-const PARENT_SCRIPT = path.join(__dirname, "..", "protected_script.lua");
-const SCRIPT_PATH = fs.existsSync(LOCAL_SCRIPT) ? LOCAL_SCRIPT : PARENT_SCRIPT;
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// XOR Encryption Helper
-function encryptXOR(plaintext) {
-  const data = Buffer.from(plaintext, "utf8");
-  const key = Buffer.from(XOR_KEY, "utf8");
-  const result = Buffer.alloc(data.length);
-  for (let i = 0; i < data.length; i++) {
-    result[i] = data[i] ^ key[i % key.length];
-  }
-  return result.toString("hex");
-}
-
-// Read ADMIN-DXMOD database in read-only mode
-function readDatabase() {
-  DB_PATH = getActiveDbPath();
-  if (!fs.existsSync(DB_PATH)) {
-    return { devices: [] };
-  }
-  try {
-    const raw = fs.readFileSync(DB_PATH, "utf8").trim();
-    if (!raw) return { devices: [] };
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("[CORE-SERVER] Failed to read database:", err.message);
-    return { devices: [] };
-  }
-}
-
-function writeDatabase(db) {
-  try {
-    DB_PATH = getActiveDbPath();
-    const tempPath = `${DB_PATH}.tmp`;
-    fs.writeFileSync(tempPath, JSON.stringify(db, null, 2), "utf8");
-    fs.renameSync(tempPath, DB_PATH);
-  } catch (err) {
-    console.error("[CORE-SERVER] Failed to write database:", err.message);
-  }
+  return allDevices;
 }
 
 function findOrCreateDevice(gameId) {
   const targetId = String(gameId || "").trim();
   if (!targetId) return null;
 
-  const db = readDatabase();
-  const devices = db.devices || [];
+  const devices = readAllDevices();
+  // Prefer an approved device if multiple exist across data.json files
+  let approvedDevice = devices.find(d => 
+    String(d.game_id || d.gameId || d.uid || "").trim() === targetId &&
+    String(d.status || "").toLowerCase() === "approved"
+  );
+  if (approvedDevice) return approvedDevice;
+
   let device = devices.find(d => 
     String(d.game_id || d.gameId || d.uid || "").trim() === targetId
   );
 
   // Auto register if new UID connects
   if (!device) {
-    const nextId = db.nextId || (devices.length > 0 ? Math.max(...devices.map(d => d.id || 0)) + 1 : 1);
-    const nowIso = new Date().toISOString();
-    device = {
-      id: nextId,
-      game_id: targetId,
-      label: `Device ${targetId}`,
-      status: "pending",
-      expires_at: null,
-      note: "Tự động đăng ký từ Game Client",
-      first_seen_at: nowIso,
-      updated_at: nowIso
-    };
-    devices.push(device);
-    db.nextId = nextId + 1;
-    db.devices = devices;
-    writeDatabase(db);
-    console.log(`[CORE-SERVER] Registered new UID: "${targetId}" into data.json at ${DB_PATH} (status: pending)`);
+    const primaryPath = DB_CANDIDATES.find(p => fs.existsSync(p)) || path.join(__dirname, "..", "ADMIN-DXMOD", "data.json");
+    try {
+      let db = { devices: [] };
+      if (fs.existsSync(primaryPath)) {
+        db = JSON.parse(fs.readFileSync(primaryPath, "utf8"));
+      }
+      const existing = db.devices || [];
+      const nextId = db.nextId || (existing.length > 0 ? Math.max(...existing.map(d => d.id || 0)) + 1 : 1);
+      const nowIso = new Date().toISOString();
+      device = {
+        id: nextId,
+        game_id: targetId,
+        label: `Device ${targetId}`,
+        status: "pending",
+        expires_at: null,
+        note: "Tự động đăng ký từ Game Client",
+        first_seen_at: nowIso,
+        updated_at: nowIso
+      };
+      existing.push(device);
+      db.nextId = nextId + 1;
+      db.devices = existing;
+      fs.writeFileSync(primaryPath, JSON.stringify(db, null, 2), "utf8");
+      console.log(`[CORE-SERVER] Registered new UID: "${targetId}" into data.json at ${primaryPath} (status: pending)`);
+    } catch (err) {
+      console.error("[CORE-SERVER] Auto-register error:", err.message);
+    }
   }
 
   return device;
